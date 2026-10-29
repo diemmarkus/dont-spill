@@ -112,12 +112,14 @@ addEventListener('resize',resize);
 
 // ---------- state ----------
 let st,tiltTarget=0,ang=0,angV=0,sensor=false,last=performance.now(),paused=false;
-function fresh(){return{mode:'play',level:1,levelT:0,score:0,spill:0,spillL:0,spillR:0,bubbles:[],parts:[],drops:[],spawnT:.6,banner:{text:'LEVEL 1!',t:1.6}}}
-st=fresh();st.mode='start';st.banner=null;
+function fresh(){return{mode:'play',level:1,levelT:0,score:0,water:fillFrac(1),spill:0,spillL:0,spillR:0,bubbles:[],parts:[],drops:[],spawnT:.6,banner:{text:'LEVEL 1!',t:1.6}}}
 const fillFrac=l=>Math.min(.92,.65+(l-1)*.04);
+const POUR_POINTS=150;   // spill points for pouring out a whole glass
+const REFILL=.03;        // glass tops back up toward the level's fill, per second
+st=fresh();st.mode='start';st.banner=null;
 const perBubble=l=>4+l*1.5;
 const spawnEvery=()=>Math.max(.22,1.4*Math.pow(.86,st.level-1)-st.levelT*.015);
-const hWater=()=>fillFrac(st.level)*G.gh;
+const hWater=()=>st.water*G.gh;
 const surfY=x=>G.bottom-hWater()-(x-G.cx)*Math.tan(ang);
 
 function spawn(){
@@ -139,7 +141,9 @@ function pop(b,tapped){
 
 // ---------- update ----------
 function update(dt){
-  angV+=(70*(tiltTarget-ang)-9*angV)*dt;ang+=angV*dt;ang=Math.max(-1.3,Math.min(1.3,ang));
+  // slosh: damped spring toward the real-world tilt (unwrap so ±180° doesn't flip)
+  let d=tiltTarget-ang;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;
+  angV+=(60*d-10*angV)*dt;ang+=angV*dt;ang=Math.max(-1.45,Math.min(1.45,ang));
   if(st.banner){st.banner.t-=dt;if(st.banner.t<=0)st.banner=null}
   for(const p of st.parts){p.t+=dt;if(p.vx){p.x+=p.vx*dt;p.y+=p.vy*dt}}
   st.parts=st.parts.filter(p=>p.t<p.life);
@@ -158,17 +162,26 @@ function update(dt){
     const s=Math.max(G.top,surfY(b.x));
     if(b.y-b.r<=s){
       b.dead=true;
-      if(G.bottom-s>b.r*1.5){pop(b,false);addSpill(per,b.x<G.cx?-1:1,b.x,s)}
+      if(G.bottom-s>b.r*1.5){pop(b,false);addSpill(per,b.x<G.cx?-1:1,b.x,s);st.water=Math.max(.05,st.water-per/POUR_POINTS*.5)}
     }
   }
   st.bubbles=st.bubbles.filter(b=>!b.dead);
 
-  // tilt overflow: water height at each rim vs glass height
-  const t=Math.tan(ang),h=hWater();
-  const hL=h-(G.gw/2)*t,hR=h+(G.gw/2)*t;
-  const oL=Math.max(0,hL-G.gh),oR=Math.max(0,hR-G.gh);
-  if(oL>0){st.spill+=oL/G.gh*160*dt;st.spillL+=oL/G.gh*160*dt;if(Math.random()<.6)st.drops.push({x:G.left,y:G.top,vx:-(20+Math.random()*40)*G.s,vy:-20*G.s,r:(2+Math.random()*3)*G.s})}
-  if(oR>0){st.spill+=oR/G.gh*160*dt;st.spillR+=oR/G.gh*160*dt;if(Math.random()<.6)st.drops.push({x:G.right,y:G.top,vx:(20+Math.random()*40)*G.s,vy:-20*G.s,r:(2+Math.random()*3)*G.s})}
+  // tilt: the surface stays world-level, so the low-on-screen rim side rises.
+  // The most a tilted glass can hold is where the high side just meets the rim;
+  // anything above that pours out, and the glass really loses that soda.
+  const t=Math.abs(Math.tan(ang)),side=ang>0?1:-1;
+  const maxFrac=Math.max(0,1-(G.gw/2)*t/G.gh);
+  const target=fillFrac(st.level);
+  if(st.water<target)st.water=Math.min(target,st.water+REFILL*dt);
+  const over=st.water-maxFrac;
+  if(over>0){
+    const lost=over*Math.min(1,7*dt);
+    st.water-=lost;st.spill+=lost*POUR_POINTS;
+    if(side<0)st.spillL+=lost*POUR_POINTS;else st.spillR+=lost*POUR_POINTS;
+    const rim=side<0?G.left:G.right,n=Math.min(4,1+lost*300|0);
+    for(let i=0;i<n;i++)st.drops.push({x:rim,y:G.top,vx:side*(30+Math.random()*60)*G.s,vy:-(10+Math.random()*40)*G.s,r:(2+Math.random()*3.5)*G.s});
+  }
 
   if(st.spill>=100){st.spill=100;gameOver()}
 }
@@ -260,12 +273,20 @@ $('stage').addEventListener('pointerdown',e=>{
   for(const b of st.bubbles){const d=Math.hypot(b.x-x,b.y-y);if(d<b.r+16*G.s&&d<bd){bd=d;best=b}}
   if(best){best.dead=true;st.bubbles=st.bubbles.filter(b=>!b.dead);st.score++;pop(best,true)}
 });
+// Roll of the screen against gravity. From beta/gamma, the "up" vector in device
+// coordinates is (-cosβ·sinγ, sinβ, cosβ·cosγ); its projection onto the screen
+// plane gives the steering-wheel angle, whether the phone is upright or tilted back.
 function onOri(e){
-  if(e.gamma==null)return;
+  if(e.gamma==null||e.beta==null)return;
   if(!sensor){sensor=true;$('tiltBox').hidden=true}
-  const a=(screen.orientation&&screen.orientation.angle)||window.orientation||0;
-  let deg=e.gamma;if(a===90)deg=e.beta;else if(a===270||a===-90)deg=-e.beta;
-  tiltTarget=Math.max(-80,Math.min(80,deg))*Math.PI/180;
+  const R=Math.PI/180,b=e.beta*R,g=e.gamma*R;
+  const ux=-Math.cos(b)*Math.sin(g),uy=Math.sin(b);
+  if(Math.hypot(ux,uy)<.25)return; // phone almost flat: no clear "down" on screen, keep last angle
+  let roll=Math.atan2(-ux,uy);     // + = right edge of the device lower
+  const so=((screen.orientation&&screen.orientation.angle)??window.orientation??0)*R;
+  roll+=so;
+  while(roll>Math.PI)roll-=2*Math.PI;while(roll<-Math.PI)roll+=2*Math.PI;
+  tiltTarget=roll;
 }
 addEventListener('deviceorientation',onOri);
 $('tilt').addEventListener('input',e=>{if(!sensor)tiltTarget=e.target.value*Math.PI/180});
