@@ -269,8 +269,17 @@ function loop(now){
 $('stage').addEventListener('pointerdown',e=>{
   if(st.mode!=='play')return;
   const r=cv.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+  // Forgiving hit test: a fingertip-sized zone (at least 36px, in screen pixels,
+  // not scaled down with the glass), measured against the bubble's path over the
+  // last ~150ms, because it keeps rising between seeing it and the tap landing.
+  const LAG=.15;
   let best=null,bd=1e9;
-  for(const b of st.bubbles){const d=Math.hypot(b.x-x,b.y-y);if(d<b.r+16*G.s&&d<bd){bd=d;best=b}}
+  for(const b of st.bubbles){
+    const y0=b.y,y1=b.y+b.vy*LAG;             // now, and where it was a moment ago
+    const cy=Math.max(y0,Math.min(y1,y));     // closest point on that short path
+    const d=Math.hypot(b.x-x,cy-y);
+    if(d<Math.max(36,b.r+26)&&d<bd){bd=d;best=b}
+  }
   if(best){best.dead=true;st.bubbles=st.bubbles.filter(b=>!b.dead);st.score++;pop(best,true)}
 });
 // Roll of the screen against gravity. From beta/gamma, the "up" vector in device
