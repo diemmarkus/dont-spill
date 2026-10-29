@@ -248,15 +248,18 @@ function waterPoly(){
   const t=Math.tan(ang),yl=surfY(G.left),yr=surfY(G.right);
   ctx.moveTo(G.left-10,yl+10*t);ctx.lineTo(G.right+10,yr-10*t);ctx.lineTo(G.right+10,G.bottom+20);ctx.lineTo(G.left-10,G.bottom+20);ctx.closePath();
 }
-function draw(){
+// Everything behind the glass: halftone wall, speed lines, tabletop.
+// Drawn once normally, and again magnified inside the soda so it shines through.
+function drawBackdrop(){
   ctx.fillStyle=pat;ctx.fillRect(0,0,W,H);
-  // speed lines behind glass
   ctx.save();ctx.strokeStyle='rgba(255,253,246,.55)';ctx.lineWidth=3;
   for(let i=0;i<14;i++){const a=i/14*Math.PI*2;ctx.beginPath();ctx.moveTo(G.cx+Math.cos(a)*G.gw*.75,G.top+G.gh*.45+Math.sin(a)*G.gh*.6);ctx.lineTo(G.cx+Math.cos(a)*W,G.top+G.gh*.45+Math.sin(a)*H);ctx.stroke()}
   ctx.restore();
-  // table
   ctx.fillStyle=tablePat;ctx.fillRect(0,G.tableY,W,H-G.tableY);
   ctx.fillStyle=C.ink;ctx.fillRect(0,G.tableY-2,W,5);
+}
+function draw(){
+  drawBackdrop();
   // puddles
   for(const[side,amt]of[[-1,st.spillL],[1,st.spillR]]){
     if(amt<=0)continue;const rx=(14+amt*2.2)*G.s,ry=rx*.22,px=G.cx+side*(G.gw/2+rx*.55);
@@ -266,13 +269,17 @@ function draw(){
   // glass shadow
   ctx.beginPath();ctx.ellipse(G.cx+6*G.s,G.bottom+7*G.s,G.gw*.58,13*G.s,0,0,7);ctx.fillStyle='rgba(0,0,0,.32)';ctx.fill();
   // glass body
-  glassPath();ctx.closePath();ctx.fillStyle='rgba(255,253,246,.55)';ctx.fill();
+  glassPath();ctx.closePath();ctx.fillStyle='rgba(255,253,246,.38)';ctx.fill();
   // water
   ctx.save();glassPath(4);ctx.closePath();ctx.clip();
   const yl=surfY(G.left),yr=surfY(G.right);
   ctx.beginPath();ctx.moveTo(G.left-10,yl+10*Math.tan(ang));ctx.lineTo(G.right+10,yr-10*Math.tan(ang));ctx.lineTo(G.right+10,G.bottom+20);ctx.lineTo(G.left-10,G.bottom+20);ctx.closePath();
-  ctx.fillStyle=C.soda;ctx.fill();
-  ctx.save();ctx.clip();ctx.globalAlpha=.25;ctx.fillStyle=tablePat;ctx.fillRect(G.left,G.top-40,G.gw,G.gh+60);
+  ctx.save();ctx.clip();
+  // background through the soda: magnified sideways like a water-filled glass lens
+  const zx=1.22,zy=1.04,oy=G.bottom-G.gh*.4;
+  ctx.save();ctx.translate(G.cx,oy);ctx.scale(zx,zy);ctx.translate(-G.cx,-oy);drawBackdrop();ctx.restore();
+  // soda tint over it
+  ctx.globalAlpha=.58;ctx.fillStyle=C.soda;ctx.fillRect(G.left-10,G.top-40,G.gw+20,G.gh+80);
   ctx.globalAlpha=1;drawStraw(5*G.s,true);   // submerged part, shifted by refraction
   ctx.restore();
   // foam line
