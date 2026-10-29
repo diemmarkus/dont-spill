@@ -105,7 +105,7 @@ function resize(){
   const r=cv.getBoundingClientRect();dpr=Math.min(2,window.devicePixelRatio||1);
   W=r.width;H=r.height;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
   const gw=Math.min(W*0.58,270),gh=Math.min(H*0.6,gw*1.7),bottom=H*0.78;
-  G={cx:W/2,gw,gh,left:W/2-gw/2,right:W/2+gw/2,bottom,top:bottom-gh,tableY:bottom+6,s:gw/270};
+  G={cx:W/2,gw,gh,left:W/2-gw/2,right:W/2+gw/2,bottom,top:bottom-gh,tableY:bottom-gh*.13,floorY:bottom+4,s:gw/270};
   pat=mkPattern(C.paper,C.dot,14,2.2);tablePat=mkPattern(C.table,'rgba(0,0,0,.18)',10,1.6);
 }
 addEventListener('resize',resize);
@@ -148,7 +148,7 @@ function update(dt){
   for(const p of st.parts){p.t+=dt;if(p.vx){p.x+=p.vx*dt;p.y+=p.vy*dt}}
   st.parts=st.parts.filter(p=>p.t<p.life);
   for(const d of st.drops){d.vy+=900*G.s*dt;d.x+=d.vx*dt;d.y+=d.vy*dt}
-  st.drops=st.drops.filter(d=>d.y<G.tableY+4&&d.x>-20&&d.x<W+20);
+  st.drops=st.drops.filter(d=>d.y<G.floorY+6&&d.x>-20&&d.x<W+20);
   if(st.mode!=='play')return;
 
   st.levelT+=dt;
@@ -192,7 +192,7 @@ function update(dt){
 function glassPath(inset=0){
   const l=G.left+inset,r=G.right-inset,t=G.top-6,b=G.bottom-inset,rad=22*G.s;
   ctx.beginPath();ctx.moveTo(l-4*G.s,t);ctx.lineTo(l,b-rad);ctx.quadraticCurveTo(l,b,l+rad,b);
-  ctx.lineTo(r-rad,b);ctx.quadraticCurveTo(r,b,r,b-rad);ctx.lineTo(r+4*G.s,t);
+  ctx.quadraticCurveTo(G.cx,b+14*G.s,r-rad,b);ctx.quadraticCurveTo(r,b,r,b-rad);ctx.lineTo(r+4*G.s,t);
 }
 function star(x,y,R,r,n){ctx.beginPath();for(let i=0;i<n*2;i++){const a=i/(n*2)*Math.PI*2-Math.PI/2,rr=i%2?r:R;ctx.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr)}ctx.closePath()}
 function inkText(txt,x,y,size,fill,rot=0){
@@ -204,7 +204,7 @@ function inkText(txt,x,y,size,fill,rot=0){
 // (the "broken straw" refraction).
 function drawStraw(dx=0,tint=false){
   const w=26*G.s;
-  const bx=G.cx+G.gw*.2,by=G.bottom-12*G.s;              // foot on the glass floor
+  const bx=G.cx+G.gw*.2,by=G.bottom+10*G.s;              // runs into the floor; clipped flat by the glass
   const rx=G.left+G.gw*.13,ry=G.top-2;                   // leans on the rim here
   const a=Math.atan2(ry-by,rx-bx);
   const L=Math.hypot(rx-bx,ry-by)+G.gh*.3;               // sticks out above the rim
@@ -246,7 +246,7 @@ function drawStraw(dx=0,tint=false){
 }
 function waterPoly(){
   const t=Math.tan(ang),yl=surfY(G.left),yr=surfY(G.right);
-  ctx.moveTo(G.left-10,yl+10*t);ctx.lineTo(G.right+10,yr-10*t);ctx.lineTo(G.right+10,G.bottom+5);ctx.lineTo(G.left-10,G.bottom+5);ctx.closePath();
+  ctx.moveTo(G.left-10,yl+10*t);ctx.lineTo(G.right+10,yr-10*t);ctx.lineTo(G.right+10,G.bottom+20);ctx.lineTo(G.left-10,G.bottom+20);ctx.closePath();
 }
 function draw(){
   ctx.fillStyle=pat;ctx.fillRect(0,0,W,H);
@@ -260,17 +260,17 @@ function draw(){
   // puddles
   for(const[side,amt]of[[-1,st.spillL],[1,st.spillR]]){
     if(amt<=0)continue;const rx=(14+amt*2.2)*G.s,ry=rx*.22,px=G.cx+side*(G.gw/2+rx*.55);
-    ctx.beginPath();ctx.ellipse(px,G.tableY+ry+6,rx,ry,0,0,7);ctx.fillStyle=C.soda;ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=C.ink;ctx.stroke();
-    ctx.beginPath();ctx.ellipse(px-rx*.3,G.tableY+ry+4,rx*.25,ry*.3,0,0,7);ctx.fillStyle=C.white;ctx.fill();
+    ctx.beginPath();ctx.ellipse(px,G.floorY+ry*.6,rx,ry,0,0,7);ctx.fillStyle=C.soda;ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=C.ink;ctx.stroke();
+    ctx.beginPath();ctx.ellipse(px-rx*.3,G.floorY+ry*.4,rx*.25,ry*.3,0,0,7);ctx.fillStyle=C.white;ctx.fill();
   }
   // glass shadow
-  ctx.beginPath();ctx.ellipse(G.cx,G.bottom+8,G.gw*.55,10*G.s,0,0,7);ctx.fillStyle='rgba(0,0,0,.25)';ctx.fill();
+  ctx.beginPath();ctx.ellipse(G.cx+6*G.s,G.bottom+7*G.s,G.gw*.58,13*G.s,0,0,7);ctx.fillStyle='rgba(0,0,0,.32)';ctx.fill();
   // glass body
   glassPath();ctx.closePath();ctx.fillStyle='rgba(255,253,246,.55)';ctx.fill();
   // water
   ctx.save();glassPath(4);ctx.closePath();ctx.clip();
   const yl=surfY(G.left),yr=surfY(G.right);
-  ctx.beginPath();ctx.moveTo(G.left-10,yl+10*Math.tan(ang));ctx.lineTo(G.right+10,yr-10*Math.tan(ang));ctx.lineTo(G.right+10,G.bottom+5);ctx.lineTo(G.left-10,G.bottom+5);ctx.closePath();
+  ctx.beginPath();ctx.moveTo(G.left-10,yl+10*Math.tan(ang));ctx.lineTo(G.right+10,yr-10*Math.tan(ang));ctx.lineTo(G.right+10,G.bottom+20);ctx.lineTo(G.left-10,G.bottom+20);ctx.closePath();
   ctx.fillStyle=C.soda;ctx.fill();
   ctx.save();ctx.clip();ctx.globalAlpha=.25;ctx.fillStyle=tablePat;ctx.fillRect(G.left,G.top-40,G.gw,G.gh+60);
   ctx.globalAlpha=1;drawStraw(5*G.s,true);   // submerged part, shifted by refraction
