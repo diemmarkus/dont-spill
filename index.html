@@ -152,7 +152,8 @@ function update(dt){
   if(st.mode!=='play')return;
 
   st.levelT+=dt;
-  if(st.levelT>=LEVEL_SECONDS){st.level++;st.levelT=0;st.banner={text:'LEVEL '+st.level+'!',sub:'MORE FIZZ!',t:1.8}}
+  if(st.levelT>=LEVEL_SECONDS){st.level++;st.levelT=0;st.banner={text:'LEVEL '+st.level+'!',sub:'MORE FIZZ!',t:1.8};st.rising=true;st.flash=1.2}
+  if(st.flash>0)st.flash-=dt;
   st.spawnT-=dt;if(st.spawnT<=0){spawn();st.spawnT=spawnEvery()*(.6+Math.random()*.8)}
 
   const per=perBubble(st.level);
@@ -174,6 +175,7 @@ function update(dt){
   const maxFrac=Math.max(0,1-(G.gw/2)*t/G.gh);
   const target=fillFrac(st.level);
   if(st.water<target)st.water=Math.min(target,st.water+REFILL*dt);
+  if(st.rising&&st.water>=target-.002)st.rising=false;   // level-up rise finished
   const over=st.water-maxFrac;
   if(over>0){
     const lost=over*Math.min(1,7*dt);
@@ -197,28 +199,50 @@ function inkText(txt,x,y,size,fill,rot=0){
   ctx.save();ctx.translate(x,y);ctx.rotate(rot);ctx.font=`${size}px ${css.getPropertyValue('--display')}`;ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.lineJoin='round';ctx.lineWidth=size*.16;ctx.strokeStyle=C.ink;ctx.fillStyle=C.ink;ctx.fillText(txt,size*.06,size*.06);ctx.strokeText(txt,0,0);ctx.fillStyle=fill;ctx.fillText(txt,0,0);ctx.restore();
 }
-// Bendy red/white straw leaning on the left rim. Fixed to the glass; drawn twice:
-// clean above the soda, and shifted + tinted below it (the "broken straw" refraction).
-function strawPath(dx=0){
-  const bx=G.cx+G.gw*.2+dx,by=G.bottom-12*G.s;           // foot on the glass floor
-  const rx=G.left+G.gw*.13,ry=G.top-2;                   // leans on the rim here
-  const ux=rx-bx,uy=ry-by,len=Math.hypot(ux,uy),ex=ux/len,ey=uy/len;
-  const kx=rx+ex*G.gh*.16,ky=ry+ey*G.gh*.16;             // bend joint
-  ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(kx,ky);
-  ctx.quadraticCurveTo(kx+ex*G.gh*.08,ky+ey*G.gh*.08,kx-G.gw*.2,ky-G.gh*.07);
-  return{tx:kx-G.gw*.2,ty:ky-G.gh*.07};
-}
+// Straight paper straw with red spiral stripes, leaning on the left rim. Fixed to
+// the glass; drawn twice: clean above the soda, and shifted + tinted below it
+// (the "broken straw" refraction).
 function drawStraw(dx=0,tint=false){
-  const w=13*G.s;
-  const end=strawPath(dx);
-  ctx.lineJoin='round';
-  ctx.lineCap='round';ctx.lineWidth=w+6;ctx.strokeStyle=C.ink;ctx.setLineDash([]);ctx.stroke();
-  ctx.lineCap='butt';ctx.lineWidth=w;ctx.strokeStyle=C.white;ctx.stroke();
-  ctx.setLineDash([9*G.s,9*G.s]);ctx.strokeStyle=C.pop;ctx.stroke();ctx.setLineDash([]);
-  // shine along the straw
-  ctx.lineWidth=2.5*G.s;ctx.strokeStyle='rgba(255,253,246,.7)';ctx.save();ctx.translate(-w*.25,-w*.1);strawPath(dx);ctx.stroke();ctx.restore();
-  if(tint){ctx.lineWidth=w+6;ctx.lineCap='round';ctx.strokeStyle=C.soda;ctx.globalAlpha=.4;strawPath(dx);ctx.stroke();ctx.globalAlpha=1}
-  else{ctx.beginPath();ctx.ellipse(end.tx,end.ty,w*.5,w*.28,-.3,0,7);ctx.fillStyle=C.ink;ctx.fill()}
+  const w=18*G.s;
+  const bx=G.cx+G.gw*.2,by=G.bottom-12*G.s;              // foot on the glass floor
+  const rx=G.left+G.gw*.13,ry=G.top-2;                   // leans on the rim here
+  const a=Math.atan2(ry-by,rx-bx);
+  const L=Math.hypot(rx-bx,ry-by)+G.gh*.3;               // sticks out above the rim
+  ctx.save();ctx.translate(bx+dx,by);ctx.rotate(a);
+  // flash while the soda rises to a new level: blinking white glow + bright yellow bands
+  const flashing=(st.rising||st.flash>0)&&st.mode==='play';
+  const on=flashing&&Math.floor(performance.now()/110)%2===0;
+  if(on){
+    ctx.save();ctx.shadowColor=C.white;ctx.shadowBlur=22*G.s;ctx.lineCap='round';
+    ctx.lineWidth=w+12*G.s;ctx.strokeStyle='rgba(255,253,246,.9)';
+    ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(L,0);ctx.stroke();ctx.stroke();ctx.restore();
+    if(!tint){ // little comic sparks off the top end
+      ctx.save();ctx.strokeStyle=C.ink;ctx.lineWidth=3;ctx.lineCap='round';
+      for(const t of[-1.1,-.4,.4,1.1]){ctx.beginPath();ctx.moveTo(L+Math.cos(t)*w*1.1,Math.sin(t)*w*1.1);ctx.lineTo(L+Math.cos(t)*w*2,Math.sin(t)*w*2);ctx.stroke()}
+      ctx.restore();
+    }
+  }
+  // body: paper white with slanted red bands (the spiral seen from the side)
+  ctx.save();ctx.beginPath();ctx.rect(0,-w/2,L,w);ctx.clip();
+  ctx.fillStyle=C.white;ctx.fillRect(0,-w/2,L,w);
+  const P=w*1.7,band=P*.5,slant=w*1.1;
+  ctx.fillStyle=on?C.paper:C.pop;
+  for(let s=-slant;s<L+P;s+=P){ctx.beginPath();ctx.moveTo(s,-w/2);ctx.lineTo(s+band,-w/2);ctx.lineTo(s+band+slant,w/2);ctx.lineTo(s+slant,w/2);ctx.closePath();ctx.fill()}
+  // round shading: highlight on one side, shadow on the other
+  const gr=ctx.createLinearGradient(0,-w/2,0,w/2);
+  gr.addColorStop(0,'rgba(255,253,246,.0)');gr.addColorStop(.28,'rgba(255,253,246,.55)');gr.addColorStop(.45,'rgba(255,253,246,0)');gr.addColorStop(1,'rgba(22,18,15,.22)');
+  ctx.fillStyle=gr;ctx.fillRect(0,-w/2,L,w);
+  if(tint){ctx.fillStyle=C.soda;ctx.globalAlpha=.4;ctx.fillRect(0,-w/2,L,w);ctx.globalAlpha=1}
+  ctx.restore();
+  // inked outline
+  ctx.lineWidth=3;ctx.strokeStyle=C.ink;ctx.lineJoin='round';
+  ctx.beginPath();ctx.moveTo(0,-w/2);ctx.lineTo(L,-w/2);ctx.moveTo(0,w/2);ctx.lineTo(L,w/2);ctx.stroke();
+  if(!tint){
+    // open end you can look into
+    ctx.beginPath();ctx.ellipse(L,0,w*.24,w/2,0,0,7);ctx.fillStyle=C.white;ctx.fill();ctx.stroke();
+    ctx.beginPath();ctx.ellipse(L,0,w*.13,w*.32,0,0,7);ctx.fillStyle='rgba(22,18,15,.28)';ctx.fill();
+  }
+  ctx.restore();
 }
 function waterPoly(){
   const t=Math.tan(ang),yl=surfY(G.left),yr=surfY(G.right);
