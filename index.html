@@ -291,11 +291,13 @@ function draw(){
     ctx.beginPath();ctx.arc(b.x-b.r*.35,b.y-b.r*.35,b.r*.28,0,7);ctx.fillStyle=C.soda;ctx.fill();
   }
   ctx.restore();
+  // back half of the rim sits behind the straw
+  ctx.beginPath();ctx.ellipse(G.cx,G.top-6,G.gw/2+4*G.s,7*G.s,0,Math.PI,2*Math.PI);ctx.lineWidth=4;ctx.strokeStyle=C.ink;ctx.stroke();
   // straw above the soda
   ctx.save();ctx.beginPath();ctx.rect(0,0,W,H);waterPoly();ctx.clip('evenodd');drawStraw();ctx.restore();
   // glass outline + shine
   glassPath();ctx.lineWidth=5;ctx.lineJoin='round';ctx.strokeStyle=C.ink;ctx.stroke();
-  ctx.beginPath();ctx.ellipse(G.cx,G.top-6,G.gw/2+4*G.s,7*G.s,0,0,7);ctx.lineWidth=4;ctx.stroke();
+  ctx.beginPath();ctx.ellipse(G.cx,G.top-6,G.gw/2+4*G.s,7*G.s,0,0,Math.PI);ctx.lineWidth=4;ctx.stroke();   // front half of the rim, over the straw
   ctx.strokeStyle=C.white;ctx.lineWidth=6*G.s;ctx.lineCap='round';
   ctx.beginPath();ctx.moveTo(G.left+16*G.s,G.top+20*G.s);ctx.lineTo(G.left+13*G.s,G.top+G.gh*.55);ctx.stroke();
   ctx.beginPath();ctx.moveTo(G.left+14*G.s,G.top+G.gh*.63);ctx.lineTo(G.left+13*G.s,G.top+G.gh*.7);ctx.stroke();
