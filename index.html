@@ -203,7 +203,7 @@ function inkText(txt,x,y,size,fill,rot=0){
 // the glass; drawn twice: clean above the soda, and shifted + tinted below it
 // (the "broken straw" refraction).
 function drawStraw(dx=0,tint=false){
-  const w=18*G.s;
+  const w=26*G.s;
   const bx=G.cx+G.gw*.2,by=G.bottom-12*G.s;              // foot on the glass floor
   const rx=G.left+G.gw*.13,ry=G.top-2;                   // leans on the rim here
   const a=Math.atan2(ry-by,rx-bx);
@@ -225,7 +225,7 @@ function drawStraw(dx=0,tint=false){
   // body: paper white with slanted red bands (the spiral seen from the side)
   ctx.save();ctx.beginPath();ctx.rect(0,-w/2,L,w);ctx.clip();
   ctx.fillStyle=C.white;ctx.fillRect(0,-w/2,L,w);
-  const P=w*1.7,band=P*.5,slant=w*1.1;
+  const P=w*2.1,band=P*.5,slant=w*1.25;
   ctx.fillStyle=on?C.paper:C.pop;
   for(let s=-slant;s<L+P;s+=P){ctx.beginPath();ctx.moveTo(s,-w/2);ctx.lineTo(s+band,-w/2);ctx.lineTo(s+band+slant,w/2);ctx.lineTo(s+slant,w/2);ctx.closePath();ctx.fill()}
   // round shading: highlight on one side, shadow on the other
