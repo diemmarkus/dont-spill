@@ -114,7 +114,7 @@ addEventListener('resize',resize);
 let st,tiltTarget=0,ang=0,angV=0,sensor=false,last=performance.now(),paused=false;
 function fresh(){return{mode:'play',level:1,levelT:0,score:0,spill:0,spillL:0,spillR:0,bubbles:[],parts:[],drops:[],spawnT:.6,banner:{text:'LEVEL 1!',t:1.6}}}
 st=fresh();st.mode='start';st.banner=null;
-const fillFrac=l=>Math.min(.9,.45+(l-1)*.07);
+const fillFrac=l=>Math.min(.92,.65+(l-1)*.04);
 const perBubble=l=>4+l*1.5;
 const spawnEvery=()=>Math.max(.22,1.4*Math.pow(.86,st.level-1)-st.levelT*.015);
 const hWater=()=>fillFrac(st.level)*G.gh;
