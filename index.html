@@ -92,7 +92,7 @@ const $=id=>document.getElementById(id);
 const cv=$('c'),ctx=cv.getContext('2d');
 const css=getComputedStyle(document.documentElement);
 const C={paper:css.getPropertyValue('--paper').trim(),dot:css.getPropertyValue('--dot').trim(),ink:css.getPropertyValue('--ink').trim(),table:css.getPropertyValue('--table').trim(),soda:css.getPropertyValue('--soda').trim(),pop:css.getPropertyValue('--pop').trim(),white:css.getPropertyValue('--white').trim()};
-const LEVEL_SECONDS=20;
+const LEVEL_SECONDS=25;
 let W=0,H=0,dpr=1,G={},pat=null,tablePat=null;
 
 function mkPattern(bg,dot,size,rad){
@@ -113,18 +113,20 @@ addEventListener('resize',resize);
 // ---------- state ----------
 let st,tiltTarget=0,ang=0,angV=0,sensor=false,last=performance.now(),paused=false;
 function fresh(){return{mode:'play',level:1,levelT:0,score:0,water:fillFrac(1),spill:0,spillL:0,spillR:0,bubbles:[],parts:[],drops:[],spawnT:.6,banner:{text:'LEVEL 1!',t:1.6}}}
-const fillFrac=l=>Math.min(.92,.65+(l-1)*.04);
+const fillFrac=l=>Math.min(.9,.65+(l-1)*.03);
 const POUR_POINTS=150;   // spill points for pouring out a whole glass
 const REFILL=.03;        // glass tops back up toward the level's fill, per second
 st=fresh();st.mode='start';st.banner=null;
-const perBubble=l=>4+l*1.5;
-const spawnEvery=()=>Math.max(.22,1.4*Math.pow(.86,st.level-1)-st.levelT*.015);
+const perBubble=l=>4+l;
+const spawnEvery=()=>Math.max(.3,1.6*Math.pow(.92,st.level-1)-st.levelT*.008);
 const hWater=()=>st.water*G.gh;
 const surfY=x=>G.bottom-hWater()-(x-G.cx)*Math.tan(ang);
 
 function spawn(){
   const r=(9+Math.random()*8)*G.s;
-  st.bubbles.push({x:G.left+r+8+Math.random()*(G.gw-2*r-16),y:G.bottom-r-2,r,vy:G.gh*(.16+.03*st.level)*(.8+Math.random()*.4),ph:Math.random()*6,born:0});
+  // anywhere in the bottom half of the soda
+  const low=G.bottom-r-4,high=Math.min(low,G.bottom-hWater()/2);
+  st.bubbles.push({x:G.left+r+8+Math.random()*(G.gw-2*r-16),y:high+Math.random()*(low-high),r,vy:G.gh*(.12+.012*st.level)*(.8+Math.random()*.4),ph:Math.random()*6,born:0});
 }
 function addSpill(amount,side,x,y){
   st.spill+=amount;if(side<0)st.spillL+=amount;else st.spillR+=amount;
@@ -158,7 +160,7 @@ function update(dt){
 
   const per=perBubble(st.level);
   for(const b of st.bubbles){
-    b.vy+=G.gh*.12*dt;b.y-=b.vy*dt;b.ph+=dt*6;b.x+=Math.sin(b.ph)*12*G.s*dt;
+    b.born+=dt;b.vy+=G.gh*.1*dt;b.y-=b.vy*dt;b.ph+=dt*6;b.x+=Math.sin(b.ph)*12*G.s*dt;
     b.x=Math.max(G.left+b.r+4,Math.min(G.right-b.r-4,b.x));
     const s=Math.max(G.top,surfY(b.x));
     if(b.y-b.r<=s){
@@ -287,8 +289,9 @@ function draw(){
   ctx.lineWidth=3;ctx.strokeStyle=C.ink;ctx.stroke();
   // bubbles
   for(const b of st.bubbles){
-    ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,7);ctx.fillStyle=C.white;ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=C.ink;ctx.stroke();
-    ctx.beginPath();ctx.arc(b.x-b.r*.35,b.y-b.r*.35,b.r*.28,0,7);ctx.fillStyle=C.soda;ctx.fill();
+    const k=Math.min(1,b.born/.2),rr=b.r*(k<1?k*(1.25-.25*k):1);   // quick grow-in where it appears
+    ctx.beginPath();ctx.arc(b.x,b.y,rr,0,7);ctx.fillStyle=C.white;ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=C.ink;ctx.stroke();
+    ctx.beginPath();ctx.arc(b.x-rr*.35,b.y-rr*.35,rr*.28,0,7);ctx.fillStyle=C.soda;ctx.fill();
   }
   ctx.restore();
   // back half of the rim sits behind the straw
