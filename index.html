@@ -248,7 +248,7 @@ function drawStraw(dx=0,tint=false){
 }
 function waterPoly(){
   const t=Math.tan(ang),yl=surfY(G.left),yr=surfY(G.right);
-  ctx.moveTo(G.left-10,yl+10*t);ctx.lineTo(G.right+10,yr-10*t);ctx.lineTo(G.right+10,G.bottom+20);ctx.lineTo(G.left-10,G.bottom+20);ctx.closePath();
+  ctx.moveTo(G.left-10,yl+10*t);ctx.lineTo(G.right+10,yr-10*t);ctx.lineTo(G.right+10,H+50);ctx.lineTo(G.left-10,H+50);ctx.closePath();   // down past the base, so the straw's glow never leaks onto the table
 }
 // Everything behind the glass: halftone wall, speed lines, tabletop.
 // Drawn once normally, and again magnified inside the soda so it shines through.
