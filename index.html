@@ -34,7 +34,7 @@ body{background:var(--paper);color:var(--ink);font-family:var(--hand);-webkit-us
 .stage{position:relative;flex:1;min-height:0;margin-left:calc(-1*max(16px,env(safe-area-inset-left,0px)));margin-right:calc(-1*max(16px,env(safe-area-inset-right,0px)));touch-action:none}
 canvas{display:block;width:100%;height:100%}
 .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px}
-.card{background:var(--white);border:4px solid var(--ink);border-radius:10px;box-shadow:7px 7px 0 var(--ink);padding:20px 22px;max-width:340px;text-align:center;transform:rotate(-1.5deg)}
+.card{box-sizing:border-box;width:min(340px,100%);background:var(--white);border:4px solid var(--ink);border-radius:10px;box-shadow:7px 7px 0 var(--ink);padding:20px 22px;text-align:center;transform:rotate(-1.5deg)}
 .card h1{font-family:var(--display);font-size:56px;line-height:.9;margin:0 0 6px;letter-spacing:.03em;color:var(--pop);-webkit-text-stroke:2px var(--ink);text-shadow:4px 4px 0 var(--ink);text-wrap:balance}
 .card p{margin:6px 0;font-size:16px;line-height:1.35}
 .card ul{list-style:none;padding:0;margin:10px 0;text-align:left;font-size:15px;display:grid;gap:4px}
@@ -45,6 +45,10 @@ canvas{display:block;width:100%;height:100%}
 .big{font-family:var(--display);font-size:22px;letter-spacing:.04em}
 .tilt{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(260px,70%);display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--white);font-family:var(--display);letter-spacing:.05em;font-size:14px}
 .tilt input{width:100%;accent-color:var(--soda)}
+.langs{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:14px}
+.langs button{font-family:var(--display);font-size:15px;letter-spacing:.06em;background:var(--white);color:var(--ink);border:2px solid var(--ink);border-radius:6px;padding:2px 8px;box-shadow:2px 2px 0 var(--ink);cursor:pointer}
+.langs button[aria-pressed="true"]{background:var(--paper)}
+.langs button:focus-visible{outline:3px dashed var(--pop);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.fill{transition:none}}
 </style>
 <style>:root{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);box-sizing:border-box;height:100%}body{font-size:14px}</style>
@@ -54,33 +58,29 @@ canvas{display:block;width:100%;height:100%}
   <div class="hud">
     <div class="chip" id="lvl">LVL 1</div>
     <div class="chip" id="score">0 POPS</div>
-    <div class="meter"><span>SPILLED</span><div class="bar"><div class="fill" id="fill"></div></div></div>
+    <div class="meter"><span data-i18n="spilled">SPILLED</span><div class="bar"><div class="fill" id="fill"></div></div></div>
   </div>
   <div class="stage" id="stage">
     <canvas id="c"></canvas>
-    <label class="tilt" id="tiltBox" hidden>TILT (NO MOTION SENSOR)
+    <label class="tilt" id="tiltBox" hidden><span data-i18n="tilt">TILT (NO MOTION SENSOR)</span>
       <input type="range" id="tilt" min="-60" max="60" value="0" step="1">
     </label>
     <div class="overlay" id="startOv">
       <div class="card">
-        <h1>DON'T SPILL!</h1>
-        <p>Your soda is fizzing over.</p>
-        <ul>
-          <li>Tap bubbles before they hit the top.</li>
-          <li>Every bubble that reaches the top splashes the table.</li>
-          <li>Keep the phone level, tilt it and the soda pours out.</li>
-          <li>Each level fills the glass higher and fizzes faster.</li>
-        </ul>
-        <button class="btn" id="startBtn">POUR IT!</button>
+        <h1 data-i18n="title">DON'T SPILL!</h1>
+        <p data-i18n="intro">Your soda is fizzing over.</p>
+        <ul id="rules"></ul>
+        <button class="btn" id="startBtn" data-i18n="start">POUR IT!</button>
+        <div class="langs" id="langs" role="group" aria-label="Language"></div>
       </div>
     </div>
     <div class="overlay" id="overOv" hidden>
       <div class="card">
-        <h1>SPLASH!</h1>
-        <p>The table's soaked.</p>
+        <h1 data-i18n="over">SPLASH!</h1>
+        <p data-i18n="soaked">The table's soaked.</p>
         <p class="big" id="final">0 POPS · LEVEL 1</p>
         <p id="best">Best: 0</p>
-        <button class="btn" id="againBtn">REFILL</button>
+        <button class="btn" id="againBtn" data-i18n="again">REFILL</button>
       </div>
     </div>
   </div>
@@ -93,6 +93,75 @@ const cv=$('c'),ctx=cv.getContext('2d');
 const css=getComputedStyle(document.documentElement);
 const C={paper:css.getPropertyValue('--paper').trim(),dot:css.getPropertyValue('--dot').trim(),ink:css.getPropertyValue('--ink').trim(),table:css.getPropertyValue('--table').trim(),soda:css.getPropertyValue('--soda').trim(),pop:css.getPropertyValue('--pop').trim(),white:css.getPropertyValue('--white').trim()};
 const LEVEL_SECONDS=25;
+
+// ---------- i18n ----------
+// One table per language. Functions handle numbers/plurals. Bangers covers Latin incl. accents.
+const NB=' '; // French puts a no-break space before ! and :
+const I18N={
+  en:{name:'EN',title:"DON'T SPILL!",intro:'Your soda is fizzing over.',
+    rules:['Tap bubbles before they hit the top.','Every bubble that reaches the top splashes the table.','Keep the phone level, tilt it and the soda pours out.','Each level fills the glass higher and fizzes faster.'],
+    start:'POUR IT!',over:'SPLASH!',soaked:"The table's soaked.",again:'REFILL',spilled:'SPILLED',tilt:'TILT (NO MOTION SENSOR)',
+    pops:n=>n+(n===1?' POP':' POPS'),lvl:n=>'LVL '+n,final:(p,l)=>p+' · LEVEL '+l,best:n=>'Best: '+n+(n===1?' pop':' pops'),
+    level:n=>'LEVEL '+n+'!',more:'MORE FIZZ!',taps:['POP!','PLIP!','BLIP!','POP!'],splash:'SPLOSH!'},
+  de:{name:'DE',title:'NICHT VERSCHÜTTEN!',intro:'Deine Limo schäumt über.',
+    rules:['Tipp die Blasen an, bevor sie oben ankommen.','Jede Blase, die oben ankommt, spritzt auf den Tisch.','Halt das Handy gerade – kippst du es, läuft die Limo raus.','Jedes Level füllt das Glas höher und sprudelt schneller.'],
+    start:'EINSCHENKEN!',over:'PLATSCH!',soaked:'Der Tisch ist klatschnass.',again:'NACHFÜLLEN',spilled:'VERSCHÜTTET',tilt:'KIPPEN (KEIN SENSOR)',
+    pops:n=>n+(n===1?' BLASE':' BLASEN'),lvl:n=>'LVL '+n,final:(p,l)=>p+' · LEVEL '+l,best:n=>'Rekord: '+n+(n===1?' Blase':' Blasen'),
+    level:n=>'LEVEL '+n+'!',more:'MEHR SPRUDEL!',taps:['PLOPP!','BLUBB!','PLIPP!','PLOPP!'],splash:'PLATSCH!'},
+  fr:{name:'FR',title:'NE RENVERSE RIEN'+NB+'!',intro:'Ton soda déborde de bulles.',
+    rules:["Touche les bulles avant qu'elles n'atteignent le haut.",'Chaque bulle qui arrive en haut éclabousse la table.','Garde le téléphone droit'+NB+': si tu le penches, le soda se renverse.','Chaque niveau remplit le verre davantage et pétille plus vite.'],
+    start:'VERSE'+NB+'!',over:'SPLATCH'+NB+'!',soaked:'La table est trempée.',again:'REMPLIR',spilled:'RENVERSÉ',tilt:'INCLINER (PAS DE CAPTEUR)',
+    pops:n=>n+(n<2?' BULLE':' BULLES'),lvl:n=>'NIV. '+n,final:(p,l)=>p+' · NIVEAU '+l,best:n=>'Record'+NB+': '+n+(n<2?' bulle':' bulles'),
+    level:n=>'NIVEAU '+n+NB+'!',more:'PLUS DE BULLES'+NB+'!',taps:['PLOP'+NB+'!','PLIC'+NB+'!','BLOP'+NB+'!','PLOP'+NB+'!'],splash:'SPLATCH'+NB+'!'},
+  es:{name:'ES',title:'¡NO LO DERRAMES!',intro:'Tu refresco está burbujeando.',
+    rules:['Toca las burbujas antes de que lleguen arriba.','Cada burbuja que llega arriba salpica la mesa.','Mantén el móvil recto: si lo inclinas, el refresco se derrama.','Cada nivel llena más el vaso y burbujea más rápido.'],
+    start:'¡SIRVE!',over:'¡CHOF!',soaked:'La mesa está empapada.',again:'RELLENAR',spilled:'DERRAMADO',tilt:'INCLINAR (SIN SENSOR)',
+    pops:n=>n+(n===1?' BURBUJA':' BURBUJAS'),lvl:n=>'NIV. '+n,final:(p,l)=>p+' · NIVEL '+l,best:n=>'Récord: '+n+(n===1?' burbuja':' burbujas'),
+    level:n=>'¡NIVEL '+n+'!',more:'¡MÁS BURBUJAS!',taps:['¡PLOP!','¡PLIC!','¡BLUP!','¡PLOP!'],splash:'¡CHOF!'},
+  it:{name:'IT',title:'NON ROVESCIARLA!',intro:'La tua bibita sta frizzando troppo.',
+    rules:['Tocca le bolle prima che arrivino in cima.','Ogni bolla che arriva in cima schizza sul tavolo.','Tieni il telefono dritto: se lo inclini, la bibita si rovescia.','Ogni livello riempie di più il bicchiere e frizza più veloce.'],
+    start:'VERSA!',over:'SPLASH!',soaked:'Il tavolo è fradicio.',again:'RIEMPI',spilled:'ROVESCIATO',tilt:'INCLINA (NESSUN SENSORE)',
+    pops:n=>n+(n===1?' BOLLA':' BOLLE'),lvl:n=>'LIV. '+n,final:(p,l)=>p+' · LIVELLO '+l,best:n=>'Record: '+n+(n===1?' bolla':' bolle'),
+    level:n=>'LIVELLO '+n+'!',more:'PIÙ BOLLICINE!',taps:['PLOP!','PLIC!','BLOP!','PLOP!'],splash:'SPLASH!'},
+  pt:{name:'PT',title:'NÃO DERRAME!',intro:'O refrigerante está borbulhando demais.',
+    rules:['Toque nas bolhas antes que cheguem ao topo.','Cada bolha que chega ao topo respinga na mesa.','Mantenha o celular reto: se inclinar, o refrigerante derrama.','Cada nível enche mais o copo e borbulha mais rápido.'],
+    start:'SIRVA!',over:'TCHIBUM!',soaked:'A mesa está encharcada.',again:'ENCHER',spilled:'DERRAMADO',tilt:'INCLINAR (SEM SENSOR)',
+    pops:n=>n+(n===1?' BOLHA':' BOLHAS'),lvl:n=>'NÍV. '+n,final:(p,l)=>p+' · NÍVEL '+l,best:n=>'Recorde: '+n+(n===1?' bolha':' bolhas'),
+    level:n=>'NÍVEL '+n+'!',more:'MAIS BOLHAS!',taps:['PLOP!','PLIC!','BLUP!','PLOP!'],splash:'TCHIBUM!'},
+};
+function pickLang(){
+  const want=[];
+  try{const q=new URLSearchParams(location.search).get('lang');if(q)want.push(q)}catch(_){}
+  try{const s=localStorage.getItem('dontspill.lang');if(s)want.push(s)}catch(_){}
+  want.push(...(navigator.languages||[navigator.language||'']));
+  for(const w of want){const k=String(w).toLowerCase().slice(0,2);if(I18N[k])return k}
+  return 'en';
+}
+let lang=pickLang(),T=I18N[lang],lastResult=null;
+function applyLang(k,save){
+  lang=k;T=I18N[k];document.documentElement.lang=k;
+  if(save)try{localStorage.setItem('dontspill.lang',k)}catch(_){}
+  document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=T[el.dataset.i18n]});
+  const ul=$('rules');ul.replaceChildren(...T.rules.map(r=>{const li=document.createElement('li');li.textContent=r;return li}));
+  $('langs').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.lang===k));
+  if(lastResult)showResult();
+  hudCache='';fitTitles();
+}
+// Long words (VERSCHÜTTEN!) must not burst the card: shrink each headline until it fits.
+function fitTitles(){
+  document.querySelectorAll('.card h1').forEach(h=>{
+    h.style.fontSize='';const card=h.closest('.overlay');const hid=card.hidden;card.hidden=false;
+    let fs=parseFloat(getComputedStyle(h).fontSize);
+    while(h.scrollWidth>h.clientWidth+1&&fs>24){fs-=2;h.style.fontSize=fs+'px'}
+    card.hidden=hid;
+  });
+}
+addEventListener('resize',()=>fitTitles());
+document.fonts&&document.fonts.ready.then(()=>fitTitles());
+for(const k of Object.keys(I18N)){
+  const b=document.createElement('button');b.type='button';b.dataset.lang=k;b.textContent=I18N[k].name;b.lang=k;
+  b.addEventListener('click',()=>applyLang(k,true));$('langs').append(b);
+}
 let W=0,H=0,dpr=1,G={},pat=null,tablePat=null;
 
 function mkPattern(bg,dot,size,rad){
@@ -112,7 +181,7 @@ addEventListener('resize',resize);
 
 // ---------- state ----------
 let st,tiltTarget=0,ang=0,angV=0,sensor=false,last=performance.now(),paused=false;
-function fresh(){return{mode:'play',level:1,levelT:0,score:0,water:fillFrac(1),spill:0,spillL:0,spillR:0,bubbles:[],parts:[],drops:[],spawnT:.6,banner:{text:'LEVEL 1!',t:1.6}}}
+function fresh(){return{mode:'play',level:1,levelT:0,score:0,water:fillFrac(1),spill:0,spillL:0,spillR:0,bubbles:[],parts:[],drops:[],spawnT:.6,banner:{text:T.level(1),t:1.6}}}
 const fillFrac=l=>Math.min(.9,.65+(l-1)*.03);
 const POUR_POINTS=150;   // spill points for pouring out a whole glass
 const REFILL=.03;        // glass tops back up toward the level's fill, per second
@@ -137,7 +206,7 @@ function addSpill(amount,side,x,y){
   }
 }
 function pop(b,tapped){
-  st.parts.push({type:'pop',x:b.x,y:b.y,t:0,life:.5,rot:(Math.random()-.5)*.5,text:tapped?(['POP!','PLIP!','BLIP!','POP!'][Math.random()*4|0]):'SPLOSH!'});
+  st.parts.push({type:'pop',x:b.x,y:b.y,t:0,life:.5,rot:(Math.random()-.5)*.5,splash:!tapped,text:tapped?T.taps[Math.random()*T.taps.length|0]:T.splash});
   for(let i=0;i<6;i++){const a=i/6*Math.PI*2;st.parts.push({type:'ring',x:b.x+Math.cos(a)*b.r,y:b.y+Math.sin(a)*b.r,vx:Math.cos(a)*90,vy:Math.sin(a)*90,t:0,life:.3})}
 }
 
@@ -154,7 +223,7 @@ function update(dt){
   if(st.mode!=='play')return;
 
   st.levelT+=dt;
-  if(st.levelT>=LEVEL_SECONDS){st.level++;st.levelT=0;st.banner={text:'LEVEL '+st.level+'!',sub:'MORE FIZZ!',t:1.8};st.rising=true;st.flash=1.2}
+  if(st.levelT>=LEVEL_SECONDS){st.level++;st.levelT=0;st.banner={text:T.level(st.level),sub:T.more,t:1.8};st.rising=true;st.flash=1.2}
   if(st.flash>0)st.flash-=dt;
   st.spawnT-=dt;if(st.spawnT<=0){spawn();st.spawnT=spawnEvery()*(.6+Math.random()*.8)}
 
@@ -312,8 +381,8 @@ function draw(){
     if(p.type==='ring'){ctx.strokeStyle=C.ink;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-p.vx*.05,p.y-p.vy*.05);ctx.stroke();continue}
     const sc=Math.min(1,k*5)*(1-k*.3),R=34*G.s*sc;const y=p.y-20*G.s-k*25*G.s;
     ctx.save();ctx.globalAlpha=1-Math.max(0,k-.7)/.3;
-    star(p.x,y,R,R*.62,10);ctx.fillStyle=p.text==='SPLOSH!'?C.soda:C.white;ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=C.ink;ctx.stroke();
-    inkText(p.text,p.x,y,18*G.s*sc+1,p.text==='SPLOSH!'?C.white:C.pop,p.rot);ctx.restore();
+    star(p.x,y,R,R*.62,10);ctx.fillStyle=p.splash?C.soda:C.white;ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=C.ink;ctx.stroke();
+    inkText(p.text,p.x,y,18*G.s*sc+1,p.splash?C.white:C.pop,p.rot);ctx.restore();
   }
   // banner
   if(st.banner){
@@ -325,7 +394,7 @@ function draw(){
 
 // ---------- HUD ----------
 const lvlEl=$('lvl'),scoreEl=$('score'),fillEl=$('fill');let hudCache='';
-function hud(){const s=st.level+'|'+st.score+'|'+Math.round(st.spill);if(s===hudCache)return;hudCache=s;lvlEl.textContent='LVL '+st.level;scoreEl.textContent=st.score+(st.score===1?' POP':' POPS');fillEl.style.width=Math.min(100,st.spill)+'%'}
+function hud(){const s=st.level+'|'+st.score+'|'+Math.round(st.spill);if(s===hudCache)return;hudCache=s;lvlEl.textContent=T.lvl(st.level);scoreEl.textContent=T.pops(st.score);fillEl.style.width=Math.min(100,st.spill)+'%'}
 
 function loop(now){
   const dt=Math.min(.05,(now-last)/1000);last=now;
@@ -373,18 +442,19 @@ async function begin(){
   try{if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==='function'){const r=await DeviceOrientationEvent.requestPermission();if(r==='granted')addEventListener('deviceorientation',onOri)}}catch(_){}
   try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(_){}
   setTimeout(()=>{if(!sensor)$('tiltBox').hidden=false},1200);
-  st=fresh();$('startOv').hidden=true;$('overOv').hidden=true;
+  st=fresh();lastResult=null;$('startOv').hidden=true;$('overOv').hidden=true;
 }
+function showResult(){const r=lastResult;$('final').textContent=T.final(T.pops(r.score),r.level);$('best').textContent=T.best(r.best)}
 function gameOver(){
   st.mode='over';let best=0;
   try{best=+localStorage.getItem('dontspill.best')||0;if(st.score>best){best=st.score;localStorage.setItem('dontspill.best',best)}}catch(_){best=Math.max(best,st.score)}
-  $('final').textContent=st.score+(st.score===1?' POP':' POPS')+' · LEVEL '+st.level;
-  $('best').textContent='Best: '+best+' pops';
+  lastResult={score:st.score,level:st.level,best};showResult();
   setTimeout(()=>{$('overOv').hidden=false;$('againBtn').focus()},700);
 }
 $('startBtn').addEventListener('click',begin);
 $('againBtn').addEventListener('click',begin);
 
+applyLang(lang,false);
 resize();
 // idle demo: a few bubbles behind the start card
 for(let i=0;i<5;i++){spawn();st.bubbles[i].y=G.bottom-Math.random()*G.gh*.4}
