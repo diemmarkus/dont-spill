@@ -23,6 +23,8 @@
 }
 [hidden]{display:none!important}
 html,body{height:100%;overflow:hidden;margin:0}
+/* the strip under the home indicator / system bar shows the html background: table blue at the bottom, wall yellow at the top */
+html{background:linear-gradient(to bottom,var(--paper) 50%,var(--table) 50%)}
 body{background:var(--paper);color:var(--ink);font-family:var(--hand);-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 .app{height:100%;display:flex;flex-direction:column;gap:8px;padding-block:10px 0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));box-sizing:border-box}
 .hud{display:flex;align-items:center;gap:12px;font-family:var(--display);letter-spacing:.04em}
