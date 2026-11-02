@@ -29,8 +29,12 @@ body{background:var(--paper);color:var(--ink);font-family:var(--hand);-webkit-us
 .app{height:100%;display:flex;flex-direction:column;gap:8px;padding-block:10px 0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));box-sizing:border-box}
 .hud{display:flex;align-items:center;gap:12px;font-family:var(--display);letter-spacing:.04em}
 .chip{background:var(--white);border:3px solid var(--ink);border-radius:6px;padding:2px 10px;font-size:20px;box-shadow:3px 3px 0 var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.restart{flex:none;width:40px;height:34px;display:grid;place-items:center;background:var(--soda);color:var(--ink);border:3px solid var(--ink);border-radius:6px;box-shadow:3px 3px 0 var(--ink);padding:0;cursor:pointer}
+.restart svg{width:22px;height:22px;display:block}
+.restart:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+.restart:focus-visible{outline:3px dashed var(--pop);outline-offset:3px}
 .meter{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.meter span{font-size:13px;line-height:1}
+.meter span{font-size:13px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bar{height:16px;background:var(--white);border:3px solid var(--ink);border-radius:6px;box-shadow:3px 3px 0 var(--ink);overflow:hidden}
 .fill{height:100%;width:0;background:var(--pop);background-image:radial-gradient(rgba(0,0,0,.18) 1.5px,transparent 2px);background-size:6px 6px;transition:width .15s}
 .stage{position:relative;flex:1;min-height:0;margin-left:calc(-1*max(16px,env(safe-area-inset-left,0px)));margin-right:calc(-1*max(16px,env(safe-area-inset-right,0px)));touch-action:none}
@@ -61,6 +65,7 @@ canvas{display:block;width:100%;height:100%}
     <div class="chip" id="lvl">LVL 1</div>
     <div class="chip" id="score">0 POPS</div>
     <div class="meter"><span data-i18n="spilled">SPILLED</span><div class="bar"><div class="fill" id="fill"></div></div></div>
+    <button type="button" class="restart" id="restartBtn" aria-label="Restart" title="Restart" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/><path d="M20.5 3.5v5.5H15z" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
   </div>
   <div class="stage" id="stage">
     <canvas id="c"></canvas>
@@ -102,32 +107,32 @@ const NB=' '; // French puts a no-break space before ! and :
 const I18N={
   en:{name:'EN',title:"DON'T SPILL!",intro:'Your soda is fizzing over.',
     rules:['Tap bubbles before they hit the top.','Every bubble that reaches the top splashes the table.','Keep the phone level, tilt it and the soda pours out.','Each level fills the glass higher and fizzes faster.'],
-    start:'POUR IT!',over:'SPLASH!',soaked:"The table's soaked.",again:'REFILL',spilled:'SPILLED',tilt:'TILT (NO MOTION SENSOR)',
+    start:'POUR IT!',over:'SPLASH!',soaked:"The table's soaked.",again:'REFILL',restart:'Restart',spilled:'SPILLED',tilt:'TILT (NO MOTION SENSOR)',
     pops:n=>n+(n===1?' POP':' POPS'),lvl:n=>'LVL '+n,final:(p,l)=>p+' · LEVEL '+l,best:n=>'Best: '+n+(n===1?' pop':' pops'),
     level:n=>'LEVEL '+n+'!',more:'MORE FIZZ!',taps:['POP!','PLIP!','BLIP!','POP!'],splash:'SPLOSH!'},
   de:{name:'DE',title:'NICHT VERSCHÜTTEN!',intro:'Deine Limo schäumt über.',
     rules:['Tipp die Blasen an, bevor sie oben ankommen.','Jede Blase, die oben ankommt, spritzt auf den Tisch.','Halt das Handy gerade – kippst du es, läuft die Limo raus.','Jedes Level füllt das Glas höher und sprudelt schneller.'],
-    start:'EINSCHENKEN!',over:'PLATSCH!',soaked:'Der Tisch ist klatschnass.',again:'NACHFÜLLEN',spilled:'VERSCHÜTTET',tilt:'KIPPEN (KEIN SENSOR)',
+    start:'EINSCHENKEN!',over:'PLATSCH!',soaked:'Der Tisch ist klatschnass.',again:'NACHFÜLLEN',restart:'Neu starten',spilled:'VERSCHÜTTET',tilt:'KIPPEN (KEIN SENSOR)',
     pops:n=>n+(n===1?' BLASE':' BLASEN'),lvl:n=>'LVL '+n,final:(p,l)=>p+' · LEVEL '+l,best:n=>'Rekord: '+n+(n===1?' Blase':' Blasen'),
     level:n=>'LEVEL '+n+'!',more:'MEHR SPRUDEL!',taps:['PLOPP!','BLUBB!','PLIPP!','PLOPP!'],splash:'PLATSCH!'},
   fr:{name:'FR',title:'NE RENVERSE RIEN'+NB+'!',intro:'Ton soda déborde de bulles.',
     rules:["Touche les bulles avant qu'elles n'atteignent le haut.",'Chaque bulle qui arrive en haut éclabousse la table.','Garde le téléphone droit'+NB+': si tu le penches, le soda se renverse.','Chaque niveau remplit le verre davantage et pétille plus vite.'],
-    start:'VERSE'+NB+'!',over:'SPLATCH'+NB+'!',soaked:'La table est trempée.',again:'REMPLIR',spilled:'RENVERSÉ',tilt:'INCLINER (PAS DE CAPTEUR)',
+    start:'VERSE'+NB+'!',over:'SPLATCH'+NB+'!',soaked:'La table est trempée.',again:'REMPLIR',restart:'Recommencer',spilled:'RENVERSÉ',tilt:'INCLINER (PAS DE CAPTEUR)',
     pops:n=>n+(n<2?' BULLE':' BULLES'),lvl:n=>'NIV. '+n,final:(p,l)=>p+' · NIVEAU '+l,best:n=>'Record'+NB+': '+n+(n<2?' bulle':' bulles'),
     level:n=>'NIVEAU '+n+NB+'!',more:'PLUS DE BULLES'+NB+'!',taps:['PLOP'+NB+'!','PLIC'+NB+'!','BLOP'+NB+'!','PLOP'+NB+'!'],splash:'SPLATCH'+NB+'!'},
   es:{name:'ES',title:'¡NO LO DERRAMES!',intro:'Tu refresco está burbujeando.',
     rules:['Toca las burbujas antes de que lleguen arriba.','Cada burbuja que llega arriba salpica la mesa.','Mantén el móvil recto: si lo inclinas, el refresco se derrama.','Cada nivel llena más el vaso y burbujea más rápido.'],
-    start:'¡SIRVE!',over:'¡CHOF!',soaked:'La mesa está empapada.',again:'RELLENAR',spilled:'DERRAMADO',tilt:'INCLINAR (SIN SENSOR)',
+    start:'¡SIRVE!',over:'¡CHOF!',soaked:'La mesa está empapada.',again:'RELLENAR',restart:'Reiniciar',spilled:'DERRAMADO',tilt:'INCLINAR (SIN SENSOR)',
     pops:n=>n+(n===1?' BURBUJA':' BURBUJAS'),lvl:n=>'NIV. '+n,final:(p,l)=>p+' · NIVEL '+l,best:n=>'Récord: '+n+(n===1?' burbuja':' burbujas'),
     level:n=>'¡NIVEL '+n+'!',more:'¡MÁS BURBUJAS!',taps:['¡PLOP!','¡PLIC!','¡BLUP!','¡PLOP!'],splash:'¡CHOF!'},
   it:{name:'IT',title:'NON ROVESCIARLA!',intro:'La tua bibita sta frizzando troppo.',
     rules:['Tocca le bolle prima che arrivino in cima.','Ogni bolla che arriva in cima schizza sul tavolo.','Tieni il telefono dritto: se lo inclini, la bibita si rovescia.','Ogni livello riempie di più il bicchiere e frizza più veloce.'],
-    start:'VERSA!',over:'SPLASH!',soaked:'Il tavolo è fradicio.',again:'RIEMPI',spilled:'ROVESCIATO',tilt:'INCLINA (NESSUN SENSORE)',
+    start:'VERSA!',over:'SPLASH!',soaked:'Il tavolo è fradicio.',again:'RIEMPI',restart:'Ricomincia',spilled:'ROVESCIATO',tilt:'INCLINA (NESSUN SENSORE)',
     pops:n=>n+(n===1?' BOLLA':' BOLLE'),lvl:n=>'LIV. '+n,final:(p,l)=>p+' · LIVELLO '+l,best:n=>'Record: '+n+(n===1?' bolla':' bolle'),
     level:n=>'LIVELLO '+n+'!',more:'PIÙ BOLLICINE!',taps:['PLOP!','PLIC!','BLOP!','PLOP!'],splash:'SPLASH!'},
   pt:{name:'PT',title:'NÃO DERRAME!',intro:'O refrigerante está borbulhando demais.',
     rules:['Toque nas bolhas antes que cheguem ao topo.','Cada bolha que chega ao topo respinga na mesa.','Mantenha o celular reto: se inclinar, o refrigerante derrama.','Cada nível enche mais o copo e borbulha mais rápido.'],
-    start:'SIRVA!',over:'TCHIBUM!',soaked:'A mesa está encharcada.',again:'ENCHER',spilled:'DERRAMADO',tilt:'INCLINAR (SEM SENSOR)',
+    start:'SIRVA!',over:'TCHIBUM!',soaked:'A mesa está encharcada.',again:'ENCHER',restart:'Reiniciar',spilled:'DERRAMADO',tilt:'INCLINAR (SEM SENSOR)',
     pops:n=>n+(n===1?' BOLHA':' BOLHAS'),lvl:n=>'NÍV. '+n,final:(p,l)=>p+' · NÍVEL '+l,best:n=>'Recorde: '+n+(n===1?' bolha':' bolhas'),
     level:n=>'NÍVEL '+n+'!',more:'MAIS BOLHAS!',taps:['PLOP!','PLIC!','BLUP!','PLOP!'],splash:'TCHIBUM!'},
 };
@@ -144,6 +149,7 @@ function applyLang(k,save){
   lang=k;T=I18N[k];document.documentElement.lang=k;
   if(save)try{localStorage.setItem('dontspill.lang',k)}catch(_){}
   document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=T[el.dataset.i18n]});
+  $('restartBtn').setAttribute('aria-label',T.restart);$('restartBtn').title=T.restart;
   const ul=$('rules');ul.replaceChildren(...T.rules.map(r=>{const li=document.createElement('li');li.textContent=r;return li}));
   $('langs').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.lang===k));
   if(lastResult)showResult();
@@ -444,7 +450,7 @@ async function begin(){
   try{if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==='function'){const r=await DeviceOrientationEvent.requestPermission();if(r==='granted')addEventListener('deviceorientation',onOri)}}catch(_){}
   try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(_){}
   setTimeout(()=>{if(!sensor)$('tiltBox').hidden=false},1200);
-  st=fresh();lastResult=null;$('startOv').hidden=true;$('overOv').hidden=true;
+  st=fresh();lastResult=null;$('startOv').hidden=true;$('overOv').hidden=true;$('restartBtn').hidden=false;
 }
 function showResult(){const r=lastResult;$('final').textContent=T.final(T.pops(r.score),r.level);$('best').textContent=T.best(r.best)}
 function gameOver(){
@@ -455,6 +461,7 @@ function gameOver(){
 }
 $('startBtn').addEventListener('click',begin);
 $('againBtn').addEventListener('click',begin);
+$('restartBtn').addEventListener('click',e=>{e.currentTarget.blur();begin()});
 
 applyLang(lang,false);
 resize();
